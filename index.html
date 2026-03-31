@@ -624,21 +624,20 @@
             alloy("sendEvent", {
                     data: {
                         __adobe: {
-                            target: {
-                                id: product.id,
-                                name: product.name,
-                                category: categoryName,
-                                pageUrl: window.location.href,
-                                thumbnailUrl: product.image,
-                                message: `Viewed PDP for ${product.name}`,
-                                value: product.price,
-                                inventory: inventory,
-                                event: 'product_view',
-                                timestamp: new Date().toISOString(),
-                                productId: product.id,
-                                sku: product.sku,
-                                price: product.price,
-                                currency: 'USD'
+                            target: { 
+                                entity: {
+                                    id: product.sku,
+                                    name: product.name,
+                                    category: categoryName,
+                                    pageUrl: window.location.href,
+                                    thumbnailUrl: product.image,
+                                    message: `Viewed PDP for ${product.name}`,
+                                    value: product.price,
+                                    inventory: inventory,
+                                    event: 'product_view',
+                                    timestamp: new Date().toISOString(),
+                                    currency: 'USD'
+                                }
                             }
                         }
                     }
