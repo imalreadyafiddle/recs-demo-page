@@ -602,7 +602,7 @@
             
             alloy("sendEvent", {
                 personalization: {
-                    decisionScopes: ["demo-pdp-view"]
+                    decisionScopes: ["demo-pdp-view"],
                 },
                     data: {
                         __adobe: {
@@ -611,7 +611,7 @@
                                     "entity.name": product.name,
                                     "entity.category": categoryName,
                                     "entity.pageUrl": window.location.href,
-                                    "entity.thumbnailUrl": product.image,
+                                    "entity.thumbnailUrl": "https://http.cat/200.jpg",
                                     "entity.message": `Viewed PDP for ${product.name}`,
                                     "entity.value": product.price,
                                     "entity.inventory": inventory,
