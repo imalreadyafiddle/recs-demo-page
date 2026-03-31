@@ -619,20 +619,30 @@
         }
 
         function trackProductView(product, categoryName) {
-            const payload = {
-                event: 'product_view',
-                timestamp: new Date().toISOString(),
-                productId: product.id,
-                sku: product.sku,
-                name: product.name,
-                category: categoryName,
-                price: product.price,
-                currency: 'USD'
-            };
-
-            window.dataLayer = window.dataLayer || [];
-            window.dataLayer.push(payload);
-            console.log('saas product view payload', payload);
+            const inventory = product.inventory || ((hashString(product.id) % 40) + 10);
+            
+            alloy("sendEvent", {
+                data: {
+                    entity: {
+                        id: product.id,
+                        name: product.name,
+                        category: categoryName,
+                        pageUrl: window.location.href,
+                        thumbnailUrl: product.image,
+                        message: `Viewed PDP for ${product.name}`,
+                        value: product.price,
+                        inventory: inventory
+                    },
+                    event: 'product_view',
+                    timestamp: new Date().toISOString(),
+                    productId: product.id,
+                    sku: product.sku,
+                    price: product.price,
+                    currency: 'USD'
+                }
+            });
+            
+            console.log('PDP view event sent:', product.name);
         }
 
         function addToCart(product) {
