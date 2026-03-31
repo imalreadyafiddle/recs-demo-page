@@ -607,21 +607,16 @@
                     data: {
                         __adobe: {
                             target: { 
-                                entity: {
-                                    id: product.sku,
-                                    name: product.name,
-                                    category: categoryName,
-                                    pageUrl: window.location.href,
-                                    thumbnailUrl: product.image,
-                                    message: `Viewed PDP for ${product.name}`,
-                                    value: product.price,
-                                    inventory: inventory,
-                                    event: 'product_view',
-                                    timestamp: new Date().toISOString(),
-                                    currency: 'USD'
+                                    "entity.id": product.sku,
+                                    "entity.name": product.name,
+                                    "entity.category": categoryName,
+                                    "entity.pageUrl": window.location.href,
+                                    "entity.thumbnailUrl": product.image,
+                                    "entity.message": `Viewed PDP for ${product.name}`,
+                                    "entity.value": product.price,
+                                    "entity.inventory": inventory,
                                 }
                             }
-                        }
                     }
             });
             
