@@ -25,6 +25,128 @@
         3000,
       );
     </script>
+    <script>
+      (function () {
+        let hasHandledFirstInteract = false;
+        let capturedThirdPartyId = null;
+
+        function findThirdPartyId(node) {
+          if (!node || typeof node !== "object") {
+            return null;
+          }
+
+          if (
+            node.user &&
+            typeof node.user === "object" &&
+            typeof node.user.thirdPartyId === "string"
+          ) {
+            return node.user.thirdPartyId;
+          }
+
+          if (typeof node.thirdPartyId === "string") {
+            return node.thirdPartyId;
+          }
+
+          if (Array.isArray(node)) {
+            for (const item of node) {
+              const found = findThirdPartyId(item);
+              if (found) {
+                return found;
+              }
+            }
+            return null;
+          }
+
+          for (const value of Object.values(node)) {
+            const found = findThirdPartyId(value);
+            if (found) {
+              return found;
+            }
+          }
+
+          return null;
+        }
+
+        function extractThirdPartyIdFromInteractResponse(responseBody) {
+          if (!responseBody || typeof responseBody !== "object") {
+            return null;
+          }
+
+          const decisionHandles = Array.isArray(responseBody.handle)
+            ? responseBody.handle.filter(
+                (handle) =>
+                  typeof handle?.type === "string" &&
+                  handle.type.indexOf("personalization:decisions") !== -1,
+              )
+            : [];
+
+          for (const handle of decisionHandles) {
+            const found = findThirdPartyId(handle.payload);
+            if (found) {
+              return found;
+            }
+          }
+
+          return null;
+        }
+
+        function updateCategoriesHeading(thirdPartyId) {
+          if (!thirdPartyId) {
+            return;
+          }
+
+          capturedThirdPartyId = thirdPartyId;
+          const categoriesTitle = document.getElementById("categories-title");
+
+          if (categoriesTitle) {
+            categoriesTitle.textContent =
+              "Categories - Your Hashed ID Is: " + thirdPartyId;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          if (capturedThirdPartyId) {
+            updateCategoriesHeading(capturedThirdPartyId);
+          }
+        });
+
+        const originalFetch = window.fetch;
+        if (typeof originalFetch !== "function") {
+          return;
+        }
+
+        window.fetch = function patchedFetch(...args) {
+          const request = args[0];
+          const requestUrl =
+            typeof request === "string"
+              ? request
+              : typeof request?.url === "string"
+                ? request.url
+                : "";
+
+          return originalFetch.apply(this, args).then((response) => {
+            const isInteractRequest = /\/interact(?:\?|$)/.test(requestUrl);
+
+            if (!hasHandledFirstInteract && isInteractRequest) {
+              hasHandledFirstInteract = true;
+              response
+                .clone()
+                .json()
+                .then((responseBody) => {
+                  const thirdPartyId =
+                    extractThirdPartyIdFromInteractResponse(responseBody);
+                  if (thirdPartyId) {
+                    updateCategoriesHeading(thirdPartyId);
+                  }
+                })
+                .catch(() => {});
+            }
+
+            return response;
+          });
+        };
+      })();
+    </script>
     <script
       src="https://assets.adobedtm.com/409c9b2973cc/7bb3b6856e76/launch-2eddfcceb749.min.js"
       async
@@ -386,10 +508,10 @@
       <h1>E-Commerce Checkout</h1>
 
       <div>
-        <div class="section-title">Categories</div>
+        <div class="section-title" id="categories-title">Categories</div>
         <div class="button-row" id="categories"></div>
       </div>
-
+      <div class="section-title" id="categories-title">Categories</div>
       <div>
         <div class="section-title">Product List</div>
         <div class="button-row" id="products"></div>
@@ -687,6 +809,172 @@
         return "data:image/svg+xml;base64," + btoa(svgContent);
       }
 
+      function setCategoriesTitleWithHashedId(thirdPartyId) {
+        const categoriesTitle = document.getElementById("categories-title");
+        if (!categoriesTitle || !thirdPartyId) {
+          return;
+        }
+
+        categoriesTitle.textContent =
+          "Categories - Your Hashed ID Is: " + thirdPartyId;
+      }
+
+      function findThirdPartyId(value) {
+        if (!value || typeof value !== "object") {
+          return null;
+        }
+
+        if (
+          typeof value.thirdPartyId === "string" &&
+          value.thirdPartyId.trim()
+        ) {
+          return value.thirdPartyId;
+        }
+
+        if (
+          value.user &&
+          typeof value.user === "object" &&
+          typeof value.user.thirdPartyId === "string" &&
+          value.user.thirdPartyId.trim()
+        ) {
+          return value.user.thirdPartyId;
+        }
+
+        if (Array.isArray(value)) {
+          for (const entry of value) {
+            const foundInArray = findThirdPartyId(entry);
+            if (foundInArray) {
+              return foundInArray;
+            }
+          }
+          return null;
+        }
+
+        for (const childValue of Object.values(value)) {
+          const foundInObject = findThirdPartyId(childValue);
+          if (foundInObject) {
+            return foundInObject;
+          }
+        }
+
+        return null;
+      }
+
+      function extractThirdPartyIdFromInteractResponse(response) {
+        if (!response) {
+          return null;
+        }
+
+        // Common Web SDK response shapes can vary by configuration.
+        const directPaths = [
+          response.user,
+          response.personalization,
+          response.propositions,
+          response.decisions,
+        ];
+
+        for (const candidate of directPaths) {
+          const found = findThirdPartyId(candidate);
+          if (found) {
+            return found;
+          }
+        }
+
+        return findThirdPartyId(response);
+      }
+
+      function setupAlloyFirstInteractListener() {
+        let firstSendEventHandled = false;
+
+        function wrapAlloy(alloyFn) {
+          if (
+            typeof alloyFn !== "function" ||
+            alloyFn.__wrappedForThirdPartyIdLookup
+          ) {
+            return alloyFn;
+          }
+
+          const wrappedAlloy = function (...args) {
+            const command = args[0];
+            const result = alloyFn.apply(this, args);
+
+            if (
+              !firstSendEventHandled &&
+              command === "sendEvent" &&
+              result &&
+              typeof result.then === "function"
+            ) {
+              firstSendEventHandled = true;
+              result
+                .then((response) => {
+                  const thirdPartyId =
+                    extractThirdPartyIdFromInteractResponse(response);
+                  if (thirdPartyId) {
+                    setCategoriesTitleWithHashedId(thirdPartyId);
+                    console.log("Resolved user.thirdPartyId:", thirdPartyId);
+                  } else {
+                    console.log(
+                      "First sendEvent completed, but user.thirdPartyId was not found in decisions.",
+                    );
+                  }
+                })
+                .catch((error) => {
+                  console.warn("First sendEvent failed:", error);
+                });
+            }
+
+            return result;
+          };
+
+          wrappedAlloy.__wrappedForThirdPartyIdLookup = true;
+          return wrappedAlloy;
+        }
+
+        if (typeof window.alloy === "function") {
+          window.alloy = wrapAlloy(window.alloy);
+          return;
+        }
+
+        const existingAlloyDescriptor = Object.getOwnPropertyDescriptor(
+          window,
+          "alloy",
+        );
+
+        if (existingAlloyDescriptor && !existingAlloyDescriptor.configurable) {
+          const maxAttempts = 150;
+          let attempts = 0;
+          const intervalId = setInterval(() => {
+            attempts += 1;
+            if (typeof window.alloy === "function") {
+              window.alloy = wrapAlloy(window.alloy);
+              clearInterval(intervalId);
+              return;
+            }
+
+            if (attempts >= maxAttempts) {
+              clearInterval(intervalId);
+            }
+          }, 100);
+          return;
+        }
+
+        let alloyValue = window.alloy;
+        Object.defineProperty(window, "alloy", {
+          configurable: true,
+          enumerable: true,
+          get() {
+            return alloyValue;
+          },
+          set(value) {
+            alloyValue = wrapAlloy(value);
+          },
+        });
+
+        if (typeof alloyValue === "function") {
+          alloyValue = wrapAlloy(alloyValue);
+        }
+      }
+
       function assignProductImages() {
         Object.entries(categories).forEach(([categoryKey, category]) => {
           category.products.forEach((product) => {
@@ -899,6 +1187,7 @@
       }
 
       window.addEventListener("DOMContentLoaded", () => {
+        setupAlloyFirstInteractListener();
         assignProductImages();
         initializeCategories();
         updateCartDisplay();
