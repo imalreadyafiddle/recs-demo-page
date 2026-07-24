@@ -25,134 +25,6 @@
         3000,
       );
     </script>
-    <script>
-      (function () {
-        if (window.__webSdkInteractListenerInstalled) {
-          return;
-        }
-        window.__webSdkInteractListenerInstalled = true;
-
-        let hasAppliedThirdPartyId = false;
-
-        function getCategoriesTitleElement() {
-          const candidates = document.querySelectorAll(".section-title");
-          for (const el of candidates) {
-            const text = (el.textContent || "").trim();
-            if (text === "Categories" || text.indexOf("Categories - ") === 0) {
-              return el;
-            }
-          }
-          return null;
-        }
-
-        function applyThirdPartyIdToCategories(thirdPartyId) {
-          if (!thirdPartyId || hasAppliedThirdPartyId) {
-            return;
-          }
-
-          const titleEl = getCategoriesTitleElement();
-          if (!titleEl) {
-            return;
-          }
-
-          titleEl.textContent =
-            "Categories - Your Hashed ID Is: " + thirdPartyId;
-          hasAppliedThirdPartyId = true;
-          console.log(
-            "Applied profile.thirdPartyId to Categories title:",
-            thirdPartyId,
-          );
-        }
-
-        function extractThirdPartyIdFromHandles(handles) {
-          if (!Array.isArray(handles)) {
-            return null;
-          }
-
-          const decisionsHandle = handles.find(
-            (handle) => handle && handle.type === "personalization:decisions",
-          );
-
-          if (!decisionsHandle || !Array.isArray(decisionsHandle.payload)) {
-            return null;
-          }
-
-          for (const decision of decisionsHandle.payload) {
-            if (!decision || !Array.isArray(decision.items)) {
-              continue;
-            }
-
-            for (const item of decision.items) {
-              const meta = item && item.meta;
-              const thirdPartyId = meta && meta["profile.thirdPartyId"];
-              if (typeof thirdPartyId === "string" && thirdPartyId.trim()) {
-                return thirdPartyId;
-              }
-            }
-          }
-
-          return null;
-        }
-
-        function parseInteractResponseBody(body) {
-          // Web SDK responses are often an array of handle objects.
-          if (Array.isArray(body)) {
-            return body;
-          }
-
-          // Support alternate wrappers just in case.
-          if (body && Array.isArray(body.handle)) {
-            return body.handle;
-          }
-
-          if (body && Array.isArray(body.handles)) {
-            return body.handles;
-          }
-
-          return null;
-        }
-
-        function isWebSdkInteractRequest(url) {
-          return /\/ee\/v\d+\/interact(?:\?|$)/.test(url);
-        }
-
-        const originalFetch = window.fetch;
-        if (typeof originalFetch !== "function") {
-          return;
-        }
-
-        window.fetch = function webSdkInteractListenerFetch(...args) {
-          const input = args[0];
-          const requestUrl =
-            typeof input === "string"
-              ? input
-              : input && typeof input.url === "string"
-                ? input.url
-                : "";
-
-          return originalFetch.apply(this, args).then((response) => {
-            if (
-              !hasAppliedThirdPartyId &&
-              isWebSdkInteractRequest(requestUrl)
-            ) {
-              response
-                .clone()
-                .json()
-                .then((body) => {
-                  const handles = parseInteractResponseBody(body);
-                  const thirdPartyId = extractThirdPartyIdFromHandles(handles);
-                  applyThirdPartyIdToCategories(thirdPartyId);
-                })
-                .catch(() => {
-                  // Ignore non-JSON responses and parsing errors.
-                });
-            }
-
-            return response;
-          });
-        };
-      })();
-    </script>
     <script
       src="https://assets.adobedtm.com/409c9b2973cc/7bb3b6856e76/launch-2eddfcceb749.min.js"
       async
@@ -948,7 +820,7 @@
           "entity.category": categoryName,
           "entity.pageUrl": window.location.href,
           "entity.thumbnailUrl": "https://http.cat/200.jpg",
-          "entity.message": `Viewed PDP for ${product.name}`,
+          "entity.message": product.description,
           "entity.value": product.price,
           "entity.inventory": inventory,
         };
